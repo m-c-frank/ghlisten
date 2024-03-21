@@ -2,7 +2,7 @@ import os
 import listener
 from comment import create_github_comment
 
-TOKEN_POSTS = os.environ.get('GH_ISSUES_POSTS')
+TOKEN = os.environ.get('GH_PAT')
 
 
 def newissue2md(issue):
@@ -21,7 +21,8 @@ def newissue2md(issue):
 def process_new_issues(new_issues):
     for new_issue in new_issues:
         md = newissue2md(new_issue)
-        create_github_comment(new_issue["url"], md, TOKEN_POSTS)
+        print(new_issue)
+        # create_github_comment(new_issue["url"], md, TOKEN)
         print(md)
 
 

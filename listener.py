@@ -6,10 +6,10 @@ import json
 import os
 
 # Configuration
-GITHUB_API_URL = 'https://api.github.com/repos/m-c-frank/posts/issues'
+REPO = os.environ.get("REPO", "m-c-frank/posts")
+GITHUB_API_URL = f'https://api.github.com/repos/{REPO}/issues'
 TOKEN = os.environ["GH_PAT"]
-DB_PATH = 'github_issues.db'
-TABLE_NAME = 'seen_issues'
+PATH_DB = os.environ.get("PATH_DB", "issues.db")
 POLL_INTERVAL = 600  # 10 minutes
 
 
@@ -21,7 +21,7 @@ def init_db(db_path):
     """Initializes the database and creates the table if it doesn't exist."""
     with sqlite3.connect(db_path) as conn:
         conn.execute(f'''
-            CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
+            CREATE TABLE IF NOT EXISTS issues (
                 issue_id TEXT PRIMARY KEY,
                 author TEXT,
                 title TEXT,
@@ -32,20 +32,20 @@ def init_db(db_path):
         ''')
 
 
-def fetch_seen_issues(db_path):
+def get_stored_issue_ids(db_path):
     """Fetches seen issue IDs from the database and returns them as a set."""
     with sqlite3.connect(db_path) as conn:
-        cursor = conn.execute(f'SELECT issue_id FROM {TABLE_NAME}')
+        cursor = conn.execute(f'SELECT issue_id FROM issues')
         seen_issues = {row[0] for row in cursor.fetchall()}
     return seen_issues
 
 
-def add_seen_issue(db_path, issue):
+def insert_issue(db_path, issue):
     """Adds a new seen issue ID to the database."""
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             f'''
-            INSERT INTO {TABLE_NAME} (
+            INSERT INTO issues (
                 issue_id,
                 author,
                 title,
@@ -84,7 +84,7 @@ def fetch_new_issues(api_url, token, db_path, seen_issues):
         if issue_id not in seen_issues:
             logging.info(f"New issue detected: {issue['title']}")
             logging.info(f"Link: {issue['html_url']}")
-            add_seen_issue(db_path, issue)
+            insert_issue(db_path, issue)
             seen_issues.add(issue_id)
             new_issues.append(issue)
     return new_issues
@@ -92,14 +92,14 @@ def fetch_new_issues(api_url, token, db_path, seen_issues):
 
 def api(callback_fn):
     logging.info("Initializing database...")
-    init_db(DB_PATH)
+    init_db(PATH_DB)
 
-    seen_issues = fetch_seen_issues(DB_PATH)
+    seen_issues = get_stored_issue_ids(PATH_DB)
     print("seen issues: " + str(seen_issues))
     logging.info("Starting to monitor new issues via GitHub API...")
     while True:
         new_issues = fetch_new_issues(
-            GITHUB_API_URL, TOKEN, DB_PATH, seen_issues
+            GITHUB_API_URL, TOKEN, PATH_DB, seen_issues
         )
         print("new issues: " + str(new_issues))
         if not new_issues:
